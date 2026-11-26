@@ -1,0 +1,31 @@
+name: Monitor DADINI CRM
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verificar API y avisar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 2 --max-time 60 https://dadini-crm.onrender.com/api/healthz || true)
+          echo "HTTP $code"
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "DADINI API no responde in:title" --json number --jq '.[0].number // empty')
+          case "$code" in
+            200|401|403)
+              if [ -n "$n" ]; then gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Servicio recuperado (HTTP $code)."; fi
+              ;;
+            *)
+              if [ -z "$n" ]; then gh issue create --repo "$GITHUB_REPOSITORY" --title "DADINI API no responde" --body "La API https://dadini-crm.onrender.com no respondio correctamente (HTTP $code). Revisar Render y el backend."; fi
+              exit 1
+              ;;
+          esac
