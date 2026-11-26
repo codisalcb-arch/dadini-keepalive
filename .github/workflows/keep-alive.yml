@@ -1,0 +1,20 @@
+name: Mantener DADINI CRM despierto
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Despertar API
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 2 --max-time 60 https://dadini-crm.onrender.com/api/healthz || true)
+          echo "HTTP $code"
+          case "$code" in
+            200|401|403) echo "Servicio despierto" ;;
+            *) echo "Servicio no responde"; exit 1 ;;
+          esac
